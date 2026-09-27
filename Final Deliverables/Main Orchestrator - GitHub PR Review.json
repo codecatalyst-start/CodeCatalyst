@@ -1,0 +1,609 @@
+{
+  "name": "Main Orchestrator - GitHub PR Review",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "owner": {
+          "__rl": true,
+          "value": "https://github.com/dateamarja-spec/codecatalyst-start",
+          "mode": "url"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "codecatalyst-start",
+          "mode": "name"
+        },
+        "events": [
+          "pull_request",
+          "push",
+          "status"
+        ],
+        "options": {
+          "insecureSSL": false
+        }
+      },
+      "id": "6c75f0c4-56d8-4a37-8e59-f7987f2c99ce",
+      "name": "GitHub Pull Request Trigger",
+      "type": "n8n-nodes-base.githubTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1200,
+        208
+      ],
+      "webhookId": "e1a2b3c4-0001-webhook-000000000001",
+      "alwaysOutputData": true,
+      "credentials": {
+        "githubOAuth2Api": {
+          "id": "WZC197Me6yC2gWRe",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "xDGW7Q1TsUvLxcYO",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/xDGW7Q1TsUvLxcYO",
+          "cachedResultName": "Child - Validate PR"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "b4e2936f-6239-4e4a-baac-590f97a68a6d",
+      "name": "Call: Validate PR",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -960,
+        208
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-is-valid",
+              "leftValue": "={{$json.isValid}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7a0ba3d5-9766-4571-b8e0-ac245e9f0c4d",
+      "name": "IF Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -720,
+        208
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1ef3bc8f-b80d-4177-82e9-11ef9d135eff",
+              "name": "mode",
+              "value": "validation_failed",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "75840b94-8e3f-4ec9-8308-85d10b439a09",
+      "name": "Set: mode=validation_failed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -480,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "1C7zYRY5v2lMvAPx",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/1C7zYRY5v2lMvAPx",
+          "cachedResultName": "Child - Notify & Log"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "4849a09b-c036-47bb-af55-58595df27be1",
+      "name": "Call: Notify & Log (Validation Failed)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -240,
+        384
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "wiwWshymn5i9jcTy",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/wiwWshymn5i9jcTy",
+          "cachedResultName": "Child - Static Check"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "2c4bdf09-d76d-4c90-8804-eff3f34807c5",
+      "name": "Call: Static Check",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -480,
+        112
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-static-passed",
+              "leftValue": "={{$json.staticValidationPassed}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3759f9eb-45a6-4c7b-8769-8bbff37b2424",
+      "name": "IF Static Passed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -240,
+        112
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ce8f5f94-1398-4f1e-83fe-ee22a992278a",
+              "name": "mode",
+              "value": "static_failed",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "68dd82dd-bd90-4c87-9caa-66597d03d55c",
+      "name": "Set: mode=static_failed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "1C7zYRY5v2lMvAPx",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/1C7zYRY5v2lMvAPx",
+          "cachedResultName": "Child - Notify & Log"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "c4e97dba-870b-45c7-a0bc-7ed0e9abc754",
+      "name": "Call: Notify & Log (Static Failed)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e77f744c-5e35-488d-b858-7fd3bacb551c",
+              "name": "mode",
+              "value": "log_received",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "b0a3c45d-2b01-4d9a-b21b-ea83d157b1f4",
+      "name": "Set: mode=log_received",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "1C7zYRY5v2lMvAPx",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/1C7zYRY5v2lMvAPx",
+          "cachedResultName": "Child - Notify & Log"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "079bfc22-033e-464a-9ed0-468cc819cc1d",
+      "name": "Call: Notify & Log (Received)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "Dv6CQneScyWw0ZHq",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/Dv6CQneScyWw0ZHq",
+          "cachedResultName": "Child - AI Review"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "321b7358-297b-4a54-8590-f2cc43423295",
+      "name": "Call: AI Review",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        480,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "62566847-effd-472c-8c09-fa7bb5901bdb",
+              "name": "mode",
+              "value": "ai_reviewed",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "73286ad9-c01b-4d4a-a6c6-3aee784065c7",
+      "name": "Set: mode=ai_reviewed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "1C7zYRY5v2lMvAPx",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/1C7zYRY5v2lMvAPx",
+          "cachedResultName": "Child - Notify & Log"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "cab5b471-bcf9-4919-a93c-108acf6307ef",
+      "name": "Call: Notify & Log (AI Reviewed)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        960,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {},
+      "id": "0b4acda9-1fe3-40fc-a7a8-0f0b4b1e3e01",
+      "name": "End",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        208
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "GitHub Pull Request Trigger": {
+      "main": [
+        [
+          {
+            "node": "Call: Validate PR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call: Validate PR": {
+      "main": [
+        [
+          {
+            "node": "IF Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Valid?": {
+      "main": [
+        [
+          {
+            "node": "Call: Static Check",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set: mode=validation_failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set: mode=validation_failed": {
+      "main": [
+        [
+          {
+            "node": "Call: Notify & Log (Validation Failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call: Notify & Log (Validation Failed)": {
+      "main": [
+        [
+          {
+            "node": "End",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call: Static Check": {
+      "main": [
+        [
+          {
+            "node": "IF Static Passed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Static Passed?": {
+      "main": [
+        [
+          {
+            "node": "Set: mode=log_received",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set: mode=static_failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set: mode=static_failed": {
+      "main": [
+        [
+          {
+            "node": "Call: Notify & Log (Static Failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call: Notify & Log (Static Failed)": {
+      "main": [
+        [
+          {
+            "node": "End",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set: mode=log_received": {
+      "main": [
+        [
+          {
+            "node": "Call: Notify & Log (Received)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call: Notify & Log (Received)": {
+      "main": [
+        [
+          {
+            "node": "Call: AI Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call: AI Review": {
+      "main": [
+        [
+          {
+            "node": "Set: mode=ai_reviewed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set: mode=ai_reviewed": {
+      "main": [
+        [
+          {
+            "node": "Call: Notify & Log (AI Reviewed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call: Notify & Log (AI Reviewed)": {
+      "main": [
+        [
+          {
+            "node": "End",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "58b8f198-d63a-4aca-9037-762870361a81",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4fa35574b1eff1cba6356fc6b9f923585ac51c24a33646b8924919e27d375cbf"
+  },
+  "nodeGroups": [],
+  "id": "UmdL1DxBFwDQlKQE",
+  "tags": []
+}

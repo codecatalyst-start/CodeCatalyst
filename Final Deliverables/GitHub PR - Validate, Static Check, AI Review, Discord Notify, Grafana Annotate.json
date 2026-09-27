@@ -1,0 +1,771 @@
+{
+  "name": "GitHub PR - Validate, Static Check, AI Review, Discord Notify, Grafana Annotate",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "owner": {
+          "__rl": true,
+          "value": "https://github.com/dateamarja-spec/codecatalyst-start",
+          "mode": "url"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "codecatalyst-start",
+          "mode": "name"
+        },
+        "events": [
+          "pull_request",
+          "push",
+          "status"
+        ],
+        "options": {
+          "insecureSSL": false
+        }
+      },
+      "id": "2423399a-426c-4333-845e-b3276e73f821",
+      "name": "GitHub Pull Request Trigger",
+      "type": "n8n-nodes-base.githubTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1392,
+        224
+      ],
+      "webhookId": "e1a2b3c4-0001-webhook-000000000001",
+      "alwaysOutputData": true,
+      "credentials": {
+        "githubOAuth2Api": {
+          "id": "WZC197Me6yC2gWRe",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---------------------------------------------------------\n// Generic GitHub Event Normalizer\n// Supports:\n//  - pull_request\n//  - push\n//  - issues\n//  - release\n//  - unknown events\n// ---------------------------------------------------------\n\nconst payload = $json.body || {};\nconst headers = $json.headers || {};\nconst validationErrors = [];\n// Detect GitHub Event\nconst eventType =\n  headers[\"x-github-event\"] ||\n  headers[\"X-GitHub-Event\"] ||\n  \"unknown\";\n\n// Common Repository Information\nconst repository =\n  payload.repository?.name || \"\";\n\nconst owner =\n  payload.repository?.owner?.login ||\n  payload.repository?.owner?.name ||\n  \"\";\n\nconst sender =\n  payload.sender?.login ||\n  payload.sender?.name ||\n  \"unknown\";\n\n// Default normalized object\nconst eventData = {\n  eventType,\n  action: payload.action || \"N/A\",\n\n  repository,\n  owner,\n  sender,\n\n  isValid: true,\n  validationErrors\n};\n\n// ---------------------------------------------------------\n// Pull Request Event\n// ---------------------------------------------------------\nif (eventType === \"pull_request\") {\n\n  const pr = payload.pull_request || {};\n\n  Object.assign(eventData, {\n\n    prNumber: pr.number ?? null,\n\n    title: (pr.title || \"\").trim(),\n\n    body: (pr.body || \"\").trim(),\n\n    author:\n      pr.user?.login || \"unknown\",\n\n    baseBranch:\n      pr.base?.ref || \"\",\n\n    headBranch:\n      pr.head?.ref || \"\",\n\n    draft:\n      pr.draft ?? false,\n\n    diffUrl:\n      pr.diff_url || \"\",\n\n    htmlUrl:\n      pr.html_url || \"\",\n\n    changedFiles:\n      pr.changed_files ?? 0,\n\n    additions:\n      pr.additions ?? 0,\n\n    deletions:\n      pr.deletions ?? 0\n  });\n\n  if (!eventData.title)\n    validationErrors.push(\"PR title is empty\");\n\n  if (!eventData.baseBranch)\n    validationErrors.push(\"Base branch missing\");\n\n  if (!eventData.headBranch)\n    validationErrors.push(\"Head branch missing\");\n\n  if (eventData.prNumber === null)\n    validationErrors.push(\"PR number missing\");\n}\n\n// ---------------------------------------------------------\n// Push Event\n// ---------------------------------------------------------\nelse if (eventType === \"push\") {\n\n  Object.assign(eventData, {\n\n    branch:\n      payload.ref?.replace(\"refs/heads/\", \"\") || \"\",\n\n    before:\n      payload.before || \"\",\n\n    after:\n      payload.after || \"\",\n\n    commitCount:\n      payload.commits?.length || 0,\n\n    commits:\n      payload.commits || [],\n\n    headCommitMessage:\n      payload.head_commit?.message || \"\",\n\n    headCommitId:\n      payload.head_commit?.id || \"\",\n\n    pusher:\n      payload.pusher?.name || \"\",\n\n    compareUrl:\n      payload.compare || \"\"\n  });\n\n  if (!eventData.branch)\n    validationErrors.push(\"Branch missing\");\n\n  if (eventData.commitCount === 0)\n    validationErrors.push(\"No commits found\");\n}\n\n// ---------------------------------------------------------\n// Issues Event\n// ---------------------------------------------------------\nelse if (eventType === \"issues\") {\n\n  const issue = payload.issue || {};\n\n  Object.assign(eventData, {\n\n    issueNumber:\n      issue.number ?? null,\n\n    title:\n      issue.title || \"\",\n\n    body:\n      issue.body || \"\",\n\n    state:\n      issue.state || \"\",\n\n    htmlUrl:\n      issue.html_url || \"\"\n  });\n\n  if (!eventData.title)\n    validationErrors.push(\"Issue title missing\");\n}\n\n// ---------------------------------------------------------\n// Release Event\n// ---------------------------------------------------------\nelse if (eventType === \"release\") {\n\n  const release = payload.release || {};\n\n  Object.assign(eventData, {\n\n    tag:\n      release.tag_name || \"\",\n\n    releaseName:\n      release.name || \"\",\n\n    draft:\n      release.draft ?? false,\n\n    prerelease:\n      release.prerelease ?? false,\n\n    htmlUrl:\n      release.html_url || \"\"\n  });\n\n  if (!eventData.tag)\n    validationErrors.push(\"Release tag missing\");\n}\n\n// ---------------------------------------------------------\n// Unknown Event\n// ---------------------------------------------------------\nelse {\n\n  Object.assign(eventData, {\n    rawPayload: payload\n  });\n\n  eventData.validationErrors.push(\n    `Unsupported GitHub event: ${eventType}`\n  );\n}\n\n// ---------------------------------------------------------\n// Common Validation\n// ---------------------------------------------------------\n\nif (!repository) {\n  validationErrors.push(\"Repository missing\");\n}\n\nif (!owner) {\n  validationErrors.push(\"Repository owner missing\");\n}\n\neventData.isValid =\n  validationErrors.length === 0;\n\n// ---------------------------------------------------------\n// Return Normalized Event\n// ---------------------------------------------------------\n\nreturn [{\n  json: eventData\n}];"
+      },
+      "id": "7baf56d8-111f-4b29-af0e-ba8b62ed7de7",
+      "name": "Validate PR Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1168,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Static / heuristic checks on the PR.\n// Replace this block with a real call to ESLint/SonarQube/etc. (HTTP Request node)\n// if you want an actual static analysis engine instead of these heuristics.\nconst data = $json;\nconst staticIssues = [];\n\nif (!data.isValid) {\n  staticIssues.push(...data.validationErrors);\n}\n\nif (data.changedFiles !== null && data.changedFiles > 50) {\n  staticIssues.push(`PR touches ${data.changedFiles} files - request smaller, focused PRs`);\n}\n\nconst totalLines = (data.additions || 0) + (data.deletions || 0);\nif (totalLines > 1000) {\n  staticIssues.push(`PR changes ${totalLines} lines - consider splitting it up`);\n}\n\nif (/\\b(TODO|FIXME)\\b/i.test(data.body)) {\n  staticIssues.push('PR description contains unresolved TODO/FIXME markers');\n}\n\nreturn [{\n  json: {\n    ...data,\n    staticValidationPassed: staticIssues.length === 0,\n    staticIssues\n  }\n}];"
+      },
+      "id": "2246ffb3-41d5-424b-926e-79e2086a6797",
+      "name": "Static Code Validation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -944,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-static-passed",
+              "leftValue": "={{$json.staticValidationPassed}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1fc6502e-1ac8-4bde-98b2-fdf33dc545e9",
+      "name": "Static Validation Result",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -720,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "value": "pr_events",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "author": "={{$json.commits[0].author.name}}",
+            "status": "SUCCESS",
+            "event_type": "PR_RECEIVED",
+            "repository": "={{ $json.repository }}",
+            "message": "Pull Request received and validation completed successfully.",
+            "severity": "INFO",
+            "source": "GitHub Trigger",
+            "created_at": "={{ $now.toISO() }}",
+            "event_id": "=1",
+            "commit_id": "={{$json.commits[0].id}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "event_id",
+              "displayName": "event_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "event_type",
+              "displayName": "event_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "pr_number",
+              "displayName": "pr_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "repository",
+              "displayName": "repository",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "author",
+              "displayName": "author",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "severity",
+              "displayName": "severity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "commit_id",
+              "displayName": "commit_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "aiConcerns",
+              "displayName": "aiConcerns",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "aiSummary",
+              "displayName": "aiSummary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "aiNextSteps",
+              "displayName": "aiNextSteps",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "5908f6cd-7140-4bdd-9c3b-934bda449e09",
+      "name": "Log Event",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -496,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Review the following GitHub pull request and produce a concise, actionable code review.\n\nPR #{{$json.prNumber}}: {{$json.title}}\nAuthor: {{$json.author}}\nBranch: {{$json.headBranch}} -> {{$json.baseBranch}}\nFiles changed: {{$json.changedFiles}} | +{{$json.additions}} / -{{$json.deletions}}\nDiff URL: {{$json.diffUrl}}\n\nPR description:\n{{$json.body}}\n\nStatic validation notes (already flagged, do not repeat unless relevant):\n{{JSON.stringify($json.staticIssues)}}\n\nReturn a JSON object only (no markdown, no code fences) with this shape:\n{\n  \"summary\": \"one paragraph overview of what this PR does\",\n  \"riskLevel\": \"LOW | MEDIUM | HIGH\",\n  \"strengths\": [\"...\"],\n  \"concerns\": [\"...\"],\n  \"suggestedNextSteps\": [\"...\"]\n}",
+        "options": {
+          "systemMessage": "You are a senior software engineer performing pull request reviews. Always respond with a single valid JSON object only."
+        }
+      },
+      "id": "2555eb84-8e8b-46ae-a759-15ba626fb772",
+      "name": "Generate AI PR Review",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -272,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "76ce9422-c8d6-4989-88b6-b395e63baeca",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -272,
+        288
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the AI Agent's JSON response, tolerant of accidental code fences\nconst raw = ($json.output || $json.text || $json.response || '').toString().trim();\nconst cleaned = raw.replace(/^```json\\s*/i, '').replace(/^```\\s*/i, '').replace(/```\\s*$/, '').trim();\n\nlet review;\ntry {\n  review = JSON.parse(cleaned);\n} catch (e) {\n  review = {\n    summary: cleaned,\n    riskLevel: 'UNKNOWN',\n    strengths: [],\n    concerns: [],\n    suggestedNextSteps: []\n  };\n}\n\nreturn [{\n  json: {\n    //prNumber: $('Static Code Validation').first().json.prNumber,\n    commitid: $('Log Event').first().json.commit_id,\n    title: $('Static Code Validation').first().json.title,\n    author: $('Log Event').first().json.author,\n    htmlUrl: $('Static Code Validation').first().json.htmlUrl,\n    aiSummary: review.summary,\n    aiRiskLevel: review.riskLevel,\n    aiStrengths: review.strengths,\n    aiConcerns: review.concerns,\n    aiNextSteps: review.suggestedNextSteps,\n    reviewedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "e02b288a-a4ad-4182-be81-1f137dcfe36e",
+      "name": "Parse AI Review",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "value": "pr_events",
+          "mode": "name"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "commit_id",
+              "keyValue": "={{ $json.commitid }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "author": "={{$json.author}}",
+            "status": "AI_REVIEWED",
+            "event_id": "={{ $('Log Event').item.json.event_id }}",
+            "event_type": "={{ $('Log Event').item.json.event_type }}",
+            "repository": "={{ $('Log Event').item.json.repository }}",
+            "message": "={{ $json.aiSummary }}",
+            "severity": "={{ $('Log Event').item.json.severity }}",
+            "source": "={{ $('Log Event').item.json.source }}",
+            "created_at": "={{ $('Log Event').item.json.created_at }}",
+            "aiConcerns": "={{ $json.aiConcerns.join(', ') || 'None'}}",
+            "aiSummary": "={{ $json.aiSummary }}",
+            "aiNextSteps": "={{ $json.aiNextSteps.join(', ') || 'None'}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "event_id",
+              "displayName": "event_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "event_type",
+              "displayName": "event_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "pr_number",
+              "displayName": "pr_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "repository",
+              "displayName": "repository",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "author",
+              "displayName": "author",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "severity",
+              "displayName": "severity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "commit_id",
+              "displayName": "commit_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "aiConcerns",
+              "displayName": "aiConcerns",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "aiSummary",
+              "displayName": "aiSummary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "aiNextSteps",
+              "displayName": "aiNextSteps",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "5350bfdd-7a32-4e5d-8957-fd771f91a99c",
+      "name": "Log Production Event",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        176,
+        96
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=🤖 **AI PR Review — #{{$json.commitid}}: {{$json.title}}**\nAuthor: {{$json.author}}\nRisk level: **{{ $('Parse AI Review').item.json.aiRiskLevel }}**\n\n**Summary:** {{ $('Parse AI Review').item.json.aiSummary }}\n\n**Concerns:** {{ $('Parse AI Review').item.json.aiConcerns.join(', ') || 'None'}}\n**Suggested next steps:** {{ $('Parse AI Review').item.json.aiNextSteps.join(', ') || 'None'}}\n\n🔗 {{$json.htmlUrl}}",
+        "options": {}
+      },
+      "id": "e000d531-8c43-4915-94c6-175ecd8865a3",
+      "name": "Update Discord Technical Channel",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        400,
+        96
+      ],
+      "webhookId": "e1a2b3c4-0010-webhook-000000000010",
+      "alwaysOutputData": true,
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "rHxPGWfScf1lZJlY",
+          "name": "Discord Webhook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=🚨 **PR Validation Failed — #{{$json.prNumber}}: {{$json.title}}**\nAuthor: {{$json.author}}\n\n**Issues found:**\n{{$json.staticIssues.map(i => '• ' + i).join('\\n')}}\n\n🔗 {{$json.htmlUrl}}",
+        "options": {}
+      },
+      "id": "1e10228d-c9fb-4b0c-ba68-fb27dc2ad4f3",
+      "name": "Send Discord Alert",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        384
+      ],
+      "webhookId": "e1a2b3c4-0011-webhook-000000000011"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://keenpotato307.grafana.net/api/annotations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: `Static check failed for PR #${$json.prNumber}: ${$json.title} — ${($json.staticIssues || []).join(', ')}`, tags: ['n8n', 'github-pr', 'static-check-failed'], time: Date.now() }) }}",
+        "options": {}
+      },
+      "id": "da21f4ca-faa7-4710-9c89-9e6e4d3f209b",
+      "name": "Post Grafana Annotation (Static Failed)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -496,
+        544
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "nzVzjpLnGbOsUhVk",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://keenpotato307.grafana.net/api/annotations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: `AI review completed for PR #${$json.prNumber}: ${$json.title} — Risk: ${$json.aiRiskLevel}. ${$json.aiSummary}`, tags: ['n8n', 'github-pr', 'ai-reviewed', ('risk-' + ($json.aiRiskLevel || 'unknown')).toLowerCase()], time: Date.now() }) }}",
+        "options": {}
+      },
+      "id": "9bd34515-b6cc-4d8b-83e1-658555faf3f2",
+      "name": "Post Grafana Annotation (AI Reviewed)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        272
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "nzVzjpLnGbOsUhVk",
+          "name": "Bearer Auth account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "GitHub Pull Request Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate PR Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate PR Data": {
+      "main": [
+        [
+          {
+            "node": "Static Code Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Static Code Validation": {
+      "main": [
+        [
+          {
+            "node": "Static Validation Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Static Validation Result": {
+      "main": [
+        [
+          {
+            "node": "Log Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Discord Alert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post Grafana Annotation (Static Failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Event": {
+      "main": [
+        [
+          {
+            "node": "Generate AI PR Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate AI PR Review": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate AI PR Review",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Review": {
+      "main": [
+        [
+          {
+            "node": "Log Production Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Production Event": {
+      "main": [
+        [
+          {
+            "node": "Post Grafana Annotation (AI Reviewed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Discord Technical Channel": {
+      "main": [
+        []
+      ]
+    },
+    "Send Discord Alert": {
+      "main": [
+        []
+      ]
+    },
+    "Post Grafana Annotation (Static Failed)": {
+      "main": [
+        []
+      ]
+    },
+    "Post Grafana Annotation (AI Reviewed)": {
+      "main": [
+        [
+          {
+            "node": "Update Discord Technical Channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "6ff545d6-9e9b-4ace-a054-7f5955492783",
+  "meta": {
+    "instanceId": "4fa35574b1eff1cba6356fc6b9f923585ac51c24a33646b8924919e27d375cbf"
+  },
+  "nodeGroups": [],
+  "id": "Du0HwDWwDuX7783F",
+  "tags": []
+}
